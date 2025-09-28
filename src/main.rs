@@ -40,7 +40,8 @@ async fn main() -> Result<()> {
 /// Создает HTTP клиент с настройками по умолчанию
 fn create_client() -> Result<Client> {
     let client = Client::builder()
-        .timeout(Duration::from_secs(30))
+        .connect_timeout(Duration::from_secs(10))
+        .timeout(Duration::from_secs(75))
         .build()?;
     Ok(client)
 }

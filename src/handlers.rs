@@ -71,7 +71,7 @@ async fn handle_spam_message(
         client,
         base_url,
         msg.chat.id,
-        &format!("{mention}СПАМ ({}%).", llm.spam_score),
+        &format!("{mention}СПАМ ({}%). Причина: {}", llm.spam_score, llm.notes),
         Some(msg.message_id),
     )
     .await {
