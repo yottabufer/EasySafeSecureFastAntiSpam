@@ -38,9 +38,12 @@ pub async fn handle_message(
         return Ok(());
     }
 
-    let Ok(llm) = check_spam_via_openrouter(client, text, &config.openrouter_api_key, &config.openrouter_model).await else {
-        log::warn!("Ошибка проверки спама, пропускаем сообщение");
-        return Ok(());
+    let llm = match check_spam_via_openrouter(client, text, &config.openrouter_api_key, &config.openrouter_model).await {
+        Ok(v) => v,
+        Err(err) => {
+            log::warn!("Ошибка проверки спама: {err:?}");
+            return Ok(());
+        }
     };
     
     log::info!("Оценка спама: {}%, причины: {}", llm.spam_score, llm.notes);

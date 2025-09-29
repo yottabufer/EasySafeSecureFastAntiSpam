@@ -19,8 +19,18 @@ struct ChatRequest<'a> {
     max_tokens: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     top_p: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    response_format: Option<ResponseFormat<'a>>,
 }
 
+/// Формат ответа OpenRouter (используем json_object для строгого JSON)
+#[derive(Serialize)]
+struct ResponseFormat<'a> {
+    #[serde(rename = "type")]
+    r#type: &'a str,
+}
+
+/// Сообщение чата для OpenRouter Chat Completions API
 #[derive(Serialize)]
 struct ChatMessage<'a> {
     role: &'a str,
@@ -67,6 +77,7 @@ pub async fn check_spam_via_openrouter(
         temperature: 0.0,
         max_tokens: 128,
         top_p: Some(0.1),
+        response_format: Some(ResponseFormat { r#type: "json_object" }),
     };
 
     let resp = client
@@ -74,6 +85,7 @@ pub async fn check_spam_via_openrouter(
         .header("Authorization", format!("Bearer {}", api_key))
         .header("Content-Type", "application/json")
         .json(&body)
+        .timeout(std::time::Duration::from_secs(240))
         .send()
         .await?;
 
