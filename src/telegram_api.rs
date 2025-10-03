@@ -3,12 +3,14 @@ use reqwest::Client;
 use serde::Deserialize;
 
 /// Структуры для работы с Telegram Bot API
+/// Обновление Telegram (update)
 #[derive(Deserialize, Debug)]
 pub struct TgUpdate {
     pub update_id: i64,
     pub message: Option<Message>,
 }
 
+/// Сообщение Telegram
 #[derive(Deserialize, Debug)]
 pub struct Message {
     pub message_id: i64,
@@ -17,6 +19,7 @@ pub struct Message {
     pub text: Option<String>,
 }
 
+/// Пользователь Telegram
 #[derive(Deserialize, Debug)]
 pub struct User {
     pub id: i64,
@@ -24,13 +27,16 @@ pub struct User {
     pub username: Option<String>,
 }
 
+/// Чат Telegram
 #[derive(Deserialize, Debug)]
 pub struct Chat {
     pub id: i64,
     #[serde(rename = "type")]
+    #[allow(dead_code)]
     pub r#type: String,
 }
 
+/// Обёртка ответа Telegram Bot API
 #[derive(Deserialize, Debug)]
 pub struct TgResponse<T> { 
     pub result: T 
@@ -53,12 +59,7 @@ pub async fn send_message(
     }
     let resp = client.post(&url).json(&payload).send().await?;
     if !resp.status().is_success() {
-        let status = resp.status();
-        let body = resp.text().await.unwrap_or_else(|e| {
-            log::warn!("Не удалось прочитать тело ответа: {}", e);
-            "Ошибка чтения ответа".to_string()
-        });
-        log::warn!("sendMessage HTTP {status}: {body}");
+        log::warn!("sendMessage HTTP {}: {}", resp.status(), resp.text().await.unwrap_or_default());
     }
     Ok(())
 }
@@ -102,12 +103,7 @@ pub async fn get_updates(
         .await?;
 
     if !resp.status().is_success() {
-        let status = resp.status();
-        let body = resp.text().await.unwrap_or_else(|e| {
-            log::warn!("Не удалось прочитать тело ответа: {}", e);
-            "Ошибка чтения ответа".to_string()
-        });
-        anyhow::bail!("getUpdates HTTP {status}: {body}");
+        anyhow::bail!("getUpdates HTTP {}: {}", resp.status(), resp.text().await.unwrap_or_default());
     }
 
     let parsed: TgResponse<Vec<TgUpdate>> = resp.json().await?;

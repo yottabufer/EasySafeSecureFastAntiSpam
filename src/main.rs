@@ -7,27 +7,22 @@ mod handlers;
 mod spam_checker;
 mod state;
 mod telegram_api;
-mod white_list;
 
 use config::Config;
-use state::AppState;
+use state::{AppState, load_whitelist};
 use telegram_api::{delete_webhook, get_me, get_updates};
-use white_list::load_whitelist;
 
-/// Точка входа: инициализация логирования/окружения, загрузка вайтлиста и запуск long polling.
+/// Главная функция: инициализация, загрузка конфигурации и запуск бота
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenvy::dotenv().ok();
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     let config = Config::from_env()?;
-    let whitelist = match load_whitelist(&config.whitelist_path).await {
-        Ok(list) => list,
-        Err(e) => {
-            log::warn!("Не удалось загрузить вайтлист: {}. Используется пустой список.", e);
-            std::collections::HashSet::new()
-        }
-    };
+    let whitelist = load_whitelist(&config.whitelist_path).await.unwrap_or_else(|e| {
+        log::warn!("Не удалось загрузить вайтлист: {}. Используется пустой список.", e);
+        std::collections::HashSet::new()
+    });
     let state = AppState::new(whitelist);
 
     log::info!("Бот запущен. Ожидаю сообщения...");
@@ -37,16 +32,16 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-/// Создает HTTP клиент с настройками по умолчанию
+/// Создает HTTP клиент с таймаутами для Telegram API
+/// Используется для запросов к Telegram
 fn create_client() -> Result<Client> {
-    let client = Client::builder()
+    Ok(Client::builder()
         .connect_timeout(Duration::from_secs(10))
         .timeout(Duration::from_secs(75))
-        .build()?;
-    Ok(client)
+        .build()?)
 }
 
-/// Основной цикл получения обновлений Telegram (getUpdates) и маршрутизация сообщений.
+/// Long polling: получение и обработка обновлений от Telegram
 async fn run_long_polling(config: &Config, state: AppState) -> Result<()> {
     let client = create_client()?;
     let base_url = format!("https://api.telegram.org/bot{}", config.bot_token);
@@ -65,20 +60,12 @@ async fn run_long_polling(config: &Config, state: AppState) -> Result<()> {
             continue;
         };
 
-        log::info!("Получено апдейтов: {}", resp.result.len());
-        
         for upd in resp.result {
             offset = upd.update_id + 1;
             if let Some(msg) = upd.message {
-                log::debug!("Message chat_id={}, type={}", msg.chat.id, msg.chat.r#type);
-                if let Some(ref t) = msg.text {
-                    log::debug!("Text: {t}");
-                }
                 if let Err(err) = handlers::handle_message(&client, &base_url, &msg, &state, config).await {
                     log::error!("handler error: {err:?}");
                 }
-            } else {
-                log::debug!("Апдейт без message: update_id={}", upd.update_id);
             }
         }
     }
