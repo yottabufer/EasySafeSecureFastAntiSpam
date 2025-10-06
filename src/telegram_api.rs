@@ -51,8 +51,8 @@ pub async fn send_message(
     text: &str, 
     reply_to_message_id: Option<i64>
 ) -> Result<()> {
-    let url = format!("{base_url}/sendMessage");
-    let mut payload = serde_json::json!({ "chat_id": chat_id, "text": text });
+    let url: String = format!("{base_url}/sendMessage");
+    let mut payload: serde_json::Value = serde_json::json!({ "chat_id": chat_id, "text": text });
     if let Some(mid) = reply_to_message_id {
         payload["reply_to_message_id"] = serde_json::json!(mid);
         payload["allow_sending_without_reply"] = serde_json::json!(true);
@@ -66,7 +66,7 @@ pub async fn send_message(
 
 /// Отключает вебхук у бота, чтобы работал long polling.
 pub async fn delete_webhook(client: &Client, base_url: &str) -> Result<()> {
-    let url = format!("{base_url}/deleteWebhook");
+    let url: String = format!("{base_url}/deleteWebhook");
     let _ = client.post(&url).json(&serde_json::json!({"drop_pending_updates": false})).send().await?;
     Ok(())
 }
@@ -78,8 +78,8 @@ pub async fn get_me(client: &Client, base_url: &str) -> Result<()> {
         id: i64, 
         username: Option<String> 
     }
-    let url = format!("{base_url}/getMe");
-    let resp = client.get(&url).send().await?;
+    let url: String = format!("{base_url}/getMe");
+    let resp: reqwest::Response = client.get(&url).send().await?;
     let parsed: TgResponse<Me> = resp.json().await?;
     log::info!("getMe: id={}, username={:?}", parsed.result.id, parsed.result.username);
     Ok(())
@@ -91,8 +91,8 @@ pub async fn get_updates(
     base_url: &str, 
     offset: i64
 ) -> Result<TgResponse<Vec<TgUpdate>>> {
-    let url = format!("{base_url}/getUpdates");
-    let resp = client
+    let url: String = format!("{base_url}/getUpdates");
+    let resp: reqwest::Response = client
         .post(&url)
         .json(&serde_json::json!({
             "timeout": 60,

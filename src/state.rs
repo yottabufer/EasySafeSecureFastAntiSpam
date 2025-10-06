@@ -25,7 +25,7 @@ impl AppState {
 /// Проверяет, находится ли пользователь в кэшированном вайтлисте.
 /// Возвращает true, если id уже в наборе.
 pub async fn is_user_whitelisted(user_id: i64, state: &AppState) -> Result<bool> {
-    let cache = state.whitelist_cache.read().await;
+    let cache: tokio::sync::RwLockReadGuard<'_, HashSet<i64>> = state.whitelist_cache.read().await;
     Ok(cache.contains(&user_id))
 }
 
@@ -33,7 +33,7 @@ pub async fn is_user_whitelisted(user_id: i64, state: &AppState) -> Result<bool>
 /// Если пользователь уже добавлен, операция идемпотентна.
 pub async fn add_user_to_whitelist(user_id: i64, state: &AppState, whitelist_path: &PathBuf) -> Result<()> {
     {
-        let mut cache = state.whitelist_cache.write().await;
+        let mut cache: tokio::sync::RwLockWriteGuard<'_, HashSet<i64>> = state.whitelist_cache.write().await;
         if !cache.insert(user_id) {
             return Ok(());
         }
@@ -44,8 +44,8 @@ pub async fn add_user_to_whitelist(user_id: i64, state: &AppState, whitelist_pat
 /// Увеличивает счётчик не-СПАМ сообщений для пользователя и возвращает текущее значение.
 /// Используется для авто-добавления в вайтлист после порога.
 pub async fn increment_ham_counter(user_id: i64, state: &AppState) -> u32 {
-    let mut map = state.user_ham_counter.write().await;
-    let entry = map.entry(user_id).or_insert(0);
+    let mut map: tokio::sync::RwLockWriteGuard<'_, HashMap<i64, u32>> = state.user_ham_counter.write().await;
+    let entry: &mut u32 = map.entry(user_id).or_insert(0);
     *entry += 1;
     *entry
 }
@@ -57,7 +57,7 @@ pub async fn load_whitelist(path: &PathBuf) -> Result<HashSet<i64>> {
         return Ok(HashSet::new());
     }
 
-    let content = fs::read_to_string(path).await.unwrap_or_else(|e| {
+    let content: String = fs::read_to_string(path).await.unwrap_or_else(|e| {
         log::warn!("Не удалось прочитать файл вайтлиста {}: {}", path.display(), e);
         String::new()
     });
@@ -71,7 +71,7 @@ pub async fn load_whitelist(path: &PathBuf) -> Result<HashSet<i64>> {
 /// Добавляет строку в конец файла, создавая его при необходимости.
 /// Вспомогательная функция, используется только внутри модуля.
 async fn append_line_to_file(path: &PathBuf, line: &str) -> Result<()> {
-    let mut file = if path.exists() {
+    let mut file: fs::File = if path.exists() {
         tokio::fs::OpenOptions::new().append(true).open(path).await?
     } else {
         if let Some(parent) = path.parent() {

@@ -23,7 +23,7 @@ pub async fn handle_message(
     let Some(text) = msg.text.as_deref().filter(|t| !t.trim().is_empty()) else {
         return Ok(());
     };
-    let text = text.trim();
+    let text: &str = text.trim();
     let truncated_text: String = text.chars().take(250).collect();
 
     // Проверяем отправителя
@@ -35,7 +35,7 @@ pub async fn handle_message(
         return Ok(());
     }
 
-    let user_id = user.id;
+    let user_id: i64 = user.id;
 
     // Пропускаем пользователей из вайтлиста
     if is_user_whitelisted(user_id, state).await? {
@@ -44,7 +44,7 @@ pub async fn handle_message(
     }
 
     // Проверяем сообщение через Ollama
-    let llm = match check_spam_via_ollama(client, &truncated_text, "http://127.0.0.1:11434", &config.ollama_model).await {
+    let llm: crate::spam_checker::LlmSpamResult = match check_spam_via_ollama(client, &truncated_text, "http://127.0.0.1:11434", &config.ollama_model).await {
         Ok(v) => v,
         Err(err) => {
             log::warn!("Ошибка проверки спама: {err:?}");
@@ -56,7 +56,7 @@ pub async fn handle_message(
     
     if llm.spam_score >= config.spam_threshold {
         // Сообщение определено как спам
-        let mention = config.tag_username
+        let mention: String = config.tag_username
             .as_ref()
             .map(|u| format!("@{u} "))
             .unwrap_or_default();
@@ -76,13 +76,13 @@ pub async fn handle_message(
         if count >= config.ham_threshold {
             add_user_to_whitelist(user_id, state, &config.whitelist_path).await?;
             
-            let username_tag = msg.from
+            let username_tag: String = msg.from
                 .as_ref()
                 .and_then(|u| u.username.as_ref())
                 .map(|u| format!("@{u}"))
                 .unwrap_or_else(|| format!("id {user_id}"));
 
-            let target_chat = config.notify_user_id.unwrap_or(msg.chat.id);
+            let target_chat: i64 = config.notify_user_id.unwrap_or(msg.chat.id);
             send_message(
                 client,
                 base_url,
