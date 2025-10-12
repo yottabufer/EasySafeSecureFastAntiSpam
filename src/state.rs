@@ -23,14 +23,12 @@ impl AppState {
 }
 
 /// Проверяет, находится ли пользователь в кэшированном вайтлисте.
-/// Возвращает true, если id уже в наборе.
 pub async fn is_user_whitelisted(user_id: i64, state: &AppState) -> Result<bool> {
     let cache: tokio::sync::RwLockReadGuard<'_, HashSet<i64>> = state.whitelist_cache.read().await;
     Ok(cache.contains(&user_id))
 }
 
 /// Добавляет пользователя в вайтлист (кэш и файл).
-/// Если пользователь уже добавлен, операция идемпотентна.
 pub async fn add_user_to_whitelist(user_id: i64, state: &AppState, whitelist_path: &PathBuf) -> Result<()> {
     {
         let mut cache: tokio::sync::RwLockWriteGuard<'_, HashSet<i64>> = state.whitelist_cache.write().await;
@@ -42,7 +40,6 @@ pub async fn add_user_to_whitelist(user_id: i64, state: &AppState, whitelist_pat
 }
 
 /// Увеличивает счётчик не-СПАМ сообщений для пользователя и возвращает текущее значение.
-/// Используется для авто-добавления в вайтлист после порога.
 pub async fn increment_ham_counter(user_id: i64, state: &AppState) -> u32 {
     let mut map: tokio::sync::RwLockWriteGuard<'_, HashMap<i64, u32>> = state.user_ham_counter.write().await;
     let entry: &mut u32 = map.entry(user_id).or_insert(0);

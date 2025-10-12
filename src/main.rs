@@ -18,23 +18,23 @@ use telegram_api::{delete_webhook, get_me, get_updates};
 #[derive(Parser)]
 #[command(name = "tg_anti_spam")]
 #[command(about = "Telegram Anti-Spam Bot and utilities")]
-enum Args {
-    /// Запустить бота для фильтрации спама
+struct Args {
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(clap::Subcommand)]
+enum Commands {
     #[command(name = "bot")]
     Bot,
-    /// Удалить удалённые аккаунты из чата
     #[command(name = "kick-deleted")]
     KickDeleted {
-        /// Chat identifier (username or ID) to clean
         #[arg(short, long)]
         chat: Option<String>,
-        /// Session file name
         #[arg(short, long, default_value = "kick_deleted_session")]
         session: String,
-        /// Run in dry-run mode (don't actually remove users)
         #[arg(long)]
         dry_run: bool,
-        /// Pause between operations in seconds
         #[arg(short, long, default_value = "1.0")]
         pause: f64,
     },
@@ -48,11 +48,12 @@ async fn main() -> Result<()> {
 
     let args: Args = Args::parse();
 
-    match args {
-        Args::Bot => run_bot().await,
-        Args::KickDeleted { chat, session, dry_run, pause } => {
+    match args.command {
+        Some(Commands::Bot) => run_bot().await,
+        Some(Commands::KickDeleted { chat, session, dry_run, pause }) => {
             run_kick_deleted_cli(chat, session, dry_run, pause).await
         }
+        None => run_bot().await,
     }
 }
 
@@ -68,7 +69,7 @@ async fn run_bot() -> Result<()> {
     log::info!("Бот запущен. Ожидаю сообщения...");
 
     // Запускаем задачу удаления удалённых аккаунтов в отдельном таске
-    // tokio::spawn(kick_deleted_task_loop());
+    tokio::spawn(kick_deleted_task_loop());
 
     run_long_polling(&config, state).await?;
 
@@ -76,16 +77,14 @@ async fn run_bot() -> Result<()> {
 }
 
 /// Запускает CLI для удаления удалённых аккаунтов
-/// Запускает бесконечный цикл задачи удаления удалённых аккаунтов
 async fn kick_deleted_task_loop() {
-    let interval: Duration = Duration::from_secs(3600); // 1 час
+    let interval: Duration = Duration::from_secs(3600);
     
     loop {
         if let Err(e) = run_kick_deleted_task().await {
             log::error!("Ошибка при удалении удалённых аккаунтов: {e:?}");
         }
         
-        // Подождать перед следующей итерацией
         sleep(interval).await;
     }
 }
@@ -120,7 +119,6 @@ async fn run_kick_deleted_cli(chat: Option<String>, session: String, dry_run: bo
 }
 
 /// Создает HTTP клиент с таймаутами для Telegram API
-/// Используется для запросов к Telegram
 fn create_client() -> Result<Client> {
     Ok(Client::builder()
         .connect_timeout(Duration::from_secs(10))
@@ -161,7 +159,6 @@ async fn run_long_polling(config: &Config, state: AppState) -> Result<()> {
 /// Запускает задачу удаления удалённых аккаунтов
 /// Использует переменные окружения для настройки
 async fn run_kick_deleted_task() -> Result<()> {
-    // Получаем настройки из переменных окружения
     let api_id: i32 = std::env::var("TELEGRAM_API_ID")
         .ok()
         .and_then(|v| v.parse::<i32>().ok())
@@ -217,7 +214,6 @@ async fn run_kick_deleted_task() -> Result<()> {
 
     log::info!("Запуск задачи удаления удалённых аккаунтов для чата: {}", chat);
 
-    // Call the actual implementation
     crate::kick_deleted::kick_deleted_users(
         api_id,
         &api_hash,

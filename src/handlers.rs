@@ -26,7 +26,6 @@ pub async fn handle_message(
     let text: &str = text.trim();
     let truncated_text: String = text.chars().take(250).collect();
 
-    // Проверяем отправителя
     let Some(user) = msg.from.as_ref() else {
         return Ok(());
     };
@@ -37,7 +36,6 @@ pub async fn handle_message(
 
     let user_id: i64 = user.id;
 
-    // Пропускаем пользователей из вайтлиста
     if is_user_whitelisted(user_id, state).await? {
         log::debug!("Пользователь {} в белом списке", user_id);
         return Ok(());

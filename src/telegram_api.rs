@@ -3,7 +3,6 @@ use reqwest::Client;
 use serde::Deserialize;
 
 /// Структуры для работы с Telegram Bot API
-/// Обновление Telegram (update)
 #[derive(Deserialize, Debug)]
 pub struct TgUpdate {
     pub update_id: i64,

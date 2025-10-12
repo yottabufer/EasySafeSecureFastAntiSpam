@@ -27,7 +27,7 @@ pub async fn kick_deleted_users(
         params: Default::default(),
     };
 
-    let mut client: Client = Client::connect(config).await?;
+    let client: Client = Client::connect(config).await?;
     
     if !client.is_authorized().await? {
         log::info!("Требуется авторизация. Отправляем код на номер: {}", phone);
@@ -63,12 +63,10 @@ pub async fn kick_deleted_users(
     let mut deleted_users: Vec<grammers_client::types::Participant> = Vec::new();
     
     log::info!("Сканируем участников чата...");
-    
+
+    // Проверка на флаг deleted из Telegram API
     while let Some(user) = participants.next().await? {
-        let is_deleted: bool = user.user.first_name() == "Deleted Account" || 
-                       user.user.first_name().contains("Deleted") ||
-                       user.user.username().is_none() && user.user.phone().is_none() && 
-                           (user.user.first_name().is_empty() || user.user.first_name() == "");
+        let is_deleted: bool = user.user.deleted();
         
         if is_deleted {
             log::info!("Найден удалённый аккаунт: {} (ID: {})", 
